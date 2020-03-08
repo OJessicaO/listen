@@ -1,0 +1,48 @@
+Language model created by QuickLM on Sun Mar  8 18:14:26 EDT 2020
+Copyright (c) 1996-2010 Carnegie Mellon University and Alexander I. Rudnicky
+
+The model is in standard ARPA format, designed by Doug Paul while he was at MITRE.
+
+The code that was used to produce this language model is available in Open Source.
+Please visit http://www.speech.cs.cmu.edu/tools/ for more information
+
+The (fixed) discount mass is 0.5. The backoffs are computed using the ratio method.
+This model based on a corpus of 5 sentences and 7 words
+
+\data\
+ngram 1=7
+ngram 2=10
+ngram 3=8
+
+\1-grams:
+-0.8573 </s> -0.3010
+-0.8573 <s> -0.2071
+-1.0792 HIT -0.2218
+-1.5563 JUST -0.2762
+-1.5563 ME -0.2361
+-1.5563 OK -0.2632
+-1.2553 STAY -0.2361
+
+\2-grams:
+-0.6990 <s> HIT 0.0000
+-1.0000 <s> JUST 0.0000
+-1.0000 <s> OK 0.0000
+-1.0000 <s> STAY 0.0000
+-0.4771 HIT </s> -0.3010
+-0.7782 HIT ME 0.0000
+-0.3010 JUST STAY 0.0000
+-0.3010 ME </s> -0.3010
+-0.3010 OK HIT -0.1249
+-0.3010 STAY </s> -0.3010
+
+\3-grams:
+-0.6021 <s> HIT </s>
+-0.6021 <s> HIT ME
+-0.3010 <s> JUST STAY
+-0.3010 <s> OK HIT
+-0.3010 <s> STAY </s>
+-0.3010 HIT ME </s>
+-0.3010 JUST STAY </s>
+-0.3010 OK HIT </s>
+
+\end\
