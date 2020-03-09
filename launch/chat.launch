@@ -1,0 +1,10 @@
+<launch>
+    <node name="recognizer" pkg="pocketsphinx" type="recognizer.py" output="screen">
+       <param name="lm" value="$(find listen)/config/command.lm"/>
+       <param name="dict" value="$(find listen)/config/command.dic"/>
+   </node>
+
+   <node name="chat" pkg="listen" type="chat.py" output="screen">
+   </node>
+
+</launch>

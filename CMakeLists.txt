@@ -206,3 +206,7 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+add_executable(say src/say.cpp)
+target_link_libraries(say ${catkin_LIBRARIES})
+add_executable(chat src/chat.cpp)
+target_link_libraries(chat ${catkin_LIBRARIES})
