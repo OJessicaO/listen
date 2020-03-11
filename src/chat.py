@@ -18,5 +18,5 @@ if __name__ == '__main__':
 
     rospy.Subscriber("/recognizer/output", String, callback)
 
-
+    #??? rospy.rate(10)
     rospy.spin()

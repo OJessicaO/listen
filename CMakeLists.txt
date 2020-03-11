@@ -13,6 +13,10 @@ find_package(catkin REQUIRED COMPONENTS
   rospy
   sound_play
   std_msgs
+  pcl_conversions 
+  pcl_ros
+  geometry_msgs
+  sensor_msgs
 )
 
 ## System dependencies are found with CMake's conventions
