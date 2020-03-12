@@ -34,13 +34,23 @@ class Game:
             self.currentPlayer = n
             print "Player",n,"in play"
             while(True):
+
+                soundhandle.say("Your score is " + str(self.players[n].score) +" Hit or stay?")
+
                 self.players[n].listen = 1
+
+                while(self.players[n].listen==1):
+                    rospy.sleep(1)
         
-                if(self.players[n].stay == 1):
+                if(self.players[n].stay == 1 or self.players[n].score==21):
                     self.players[n].listen = 0
+                    soundhandle.say("Your final score is " + str(self.players[n].score))
+                    rospy.sleep(2)
                     break
                 if(self.players[n].score>21):
                     self.players[n].listen = 0
+                    soundhandle.say("Sorry its a BUST!")
+                    rospy.sleep(2)
                     print "PLAYER",n,"BURST"
                     break
 
@@ -135,6 +145,7 @@ def callback(data):
             g.players[g.currentPlayer].listen = 0
         elif(data.data=="stay" or data.data == "stand"):
             g.players[g.currentPlayer].stay = 1
+            g.players[g.currentPlayer].listen = 0
         else:
             #rospy.sleep(1)
             soundhandle.say("what?")
@@ -176,7 +187,7 @@ if __name__ == '__main__':
     g = Game()
     g.play()
 
-
+    rospy.spin()
 
 #     sai = Player()
 #     dealer = Player()
