@@ -8,53 +8,176 @@ import rospy
 from std_msgs.msg import String
 from sound_play.libsoundplay import SoundClient
 
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import PointCloud2
+from sensor_msgs import point_cloud2
+PI = 3.1415926535897
+mul = 14/9
+
 soundhandle = SoundClient()
+
+# Publish the Twist message to the cmd_vel topic
+cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=5)
+cmd_vel = Twist()
+
+
+def rotate(angle):
+
+    speed = 40
+    clockwise = False
+    angle = angle*mul
+    print angle
+    #Converting from angles to radians
+    angular_speed = speed*2*PI/360
+    relative_angle = angle*2*PI/360
+
+    #We wont use linear components
+    cmd_vel.linear.x=0
+
+    # Checking if our movement is CW or CCW
+    if clockwise:
+        cmd_vel.angular.z = -abs(angular_speed)
+    else:
+        cmd_vel.angular.z = abs(angular_speed)
+    # Setting the current time for distance calculus
+    t0 = rospy.Time.now().to_sec()
+    current_angle = 0
+
+    while(current_angle < relative_angle):
+        cmd_vel_pub.publish(cmd_vel)
+        t1 = rospy.Time.now().to_sec()
+        current_angle = angular_speed*(t1-t0)
+    
+    #Forcing our robot to stop
+    cmd_vel.angular.z = 0
+    cmd_vel_pub.publish(cmd_vel)
+
+
+def pc_callback(msg):
+    
+    p0,p1,p2, n = 0, 0, 0, 0
+    min_x = -0.02
+    max_x = 0.02
+    max_depth = 1.2
+
+    for point in point_cloud2.read_points(msg, skip_nans=True):
+        # accumulate points only within specified range
+        if point[0]<max_x and point[0]>min_x and point[2] < max_depth:
+            p0 += point[0]
+            p1 += point[1]
+            p2 += point[2]
+            n += 1
+
+    # if game allows starting
+    if(g.start == 1):
+
+        # if enough points and found person to engage, stay still
+        if(n>1000 and g.engage==1):
+            g.motion = 0
+            print(p0/n, p1/n, p2/n)
+            cmd_vel.linear.x=0;
+            cmd_vel.angular.z=0;
+            cmd_vel_pub.publish(cmd_vel)
+            g.start = 0
+            return
+
+        # if no person found, or a current player's turn has ended, turn
+        else:
+            g.motion = 1
+            print("No points")
+            cmd_vel.linear.x=0;
+            cmd_vel.angular.z=-0.4;
+            cmd_vel_pub.publish(cmd_vel)
+
+    return
+
 
 class Game:
     def __init__(self):
         self.numPlayers = 0
         self.players = []
         self.currentPlayer = -1
+        self.engage = 1
+        self.motion = 1
+        self.start = 0
 
     def play(self):
         self.numPlayers =  input("Input the number of players ")
+
+        # create specified number of players
         for n in range(self.numPlayers):
             self.players.append(Player())
 
+        # create dealer
         dealer = Player()
+
+        # deal dealers' first 2 cards
         dealer.hit()
         dealer.hit()
         
+        # deal each player's first 2 cards
         for n in range(self.numPlayers):
             self.players[n].hit()
             self.players[n].hit()
             print "Player ",n," score:",self.players[n].score
 
-        for n in range(self.numPlayers):
-            self.currentPlayer = n
-            print "Player",n,"in play"
-            while(True):
+        if self.numPlayers>1:
+            rotate(50*(self.numPlayers-1)+10)
 
+        for n in range(self.numPlayers):
+            self.engage = 1
+            self.currentPlayer = n
+            self.start = 1
+            #print(self.motion)
+            while (self.motion==1):
+                rospy.sleep(1)
+            #print(self.motion,"..............")
+            print "Player",n,"in play"
+
+            # play current player until BUST or stay
+            while(True):
+                # self.start = 1
+                # print(self.motion)
+                # while (self.motion==1):
+                #     rospy.sleep(1)
+                # print(self.motion,"..............")
+                #self.start = 0
                 soundhandle.say("Your score is " + str(self.players[n].score) +" Hit or stay?")
 
                 self.players[n].listen = 1
 
+                # wait until dealer responds to voice input
                 while(self.players[n].listen==1):
                     rospy.sleep(1)
         
+                # exit turn if player chooses to stay
                 if(self.players[n].stay == 1 or self.players[n].score==21):
                     self.players[n].listen = 0
                     soundhandle.say("Your final score is " + str(self.players[n].score))
-                    rospy.sleep(2)
+                    rospy.sleep(3)
                     break
+
+                # exit turn if player's turn has burst
                 if(self.players[n].score>21):
                     self.players[n].listen = 0
                     soundhandle.say("Sorry its a BUST!")
-                    rospy.sleep(2)
+                    rospy.sleep(3)
                     print "PLAYER",n,"BURST"
                     break
+            # set engagement for next player if any
+            if(n<self.numPlayers-1):
+                self.start = 1
+                self.engage = 0
+                rospy.sleep(6)
+                self.engage = 1
 
+        if self.numPlayers>1:
+            rotate(50*(self.numPlayers-1))
+
+        self.start = 0
         burst = 0
+
+        # start dealer's turn
         print "Dealer's play going on..."
         while(dealer.score<17):
             dealer.hit()
@@ -83,6 +206,7 @@ class Game:
             for n in range(self.numPlayers):
                 self.currentPlayer = n
                 result = compare(dealer.score,self.players[n].score)
+                announce(dealer.score,self.players[n].score,n)
                 say(result)
                 
         
@@ -102,6 +226,16 @@ class Player:
         self.cards.append(card)
         self.score = self.score + value[card]
 
+def announce(dealerScore, playerScore,num):
+    if(playerScore>21 or dealerScore>playerScore):
+        soundhandle.say("The dealer won against player " + str(num))
+        rospy.sleep(3)
+    elif(dealerScore<playerScore):
+        soundhandle.say("The player"+str(num)+" won against the dealer ")
+        rospy.sleep(3)
+    elif(dealerScore==playerScore):
+        soundhandle.say("The dealer tied with player " + str(num))
+        rospy.sleep(3)
 def compare(dealerScore, playerScore):
     if(playerScore>21 or dealerScore>playerScore):
         return 1
@@ -136,58 +270,60 @@ def say(i):
 def callback(data):
 
     if(g.currentPlayer>=0 and g.players[g.currentPlayer].listen == 1):
-        # rospy.sleep(1)
-        # soundhandle.say("I heard " + data.data)
-        # rospy.sleep(2)
+       
         if(data.data=="hit"):
             g.players[g.currentPlayer].hit()
             print "Player",g.currentPlayer," score: ",g.players[g.currentPlayer].score 
             g.players[g.currentPlayer].listen = 0
+
         elif(data.data=="stay" or data.data == "stand"):
             g.players[g.currentPlayer].stay = 1
             g.players[g.currentPlayer].listen = 0
+
         else:
             #rospy.sleep(1)
             soundhandle.say("what?")
             rospy.sleep(1)
 
     return
-            # rospy.sleep(1)
-            # soundhandle.say("here's your card")
-            # rospy.sleep(2)
+           
 
         
     
 
 
 if __name__ == '__main__':
-    rospy.init_node('talker', anonymous=True)
+    try:
+        rospy.init_node('talker', anonymous=True)
 
+         # Subscribe to the /recognizer/output topic to receive voice commands.
+        rospy.Subscriber("/recognizer/output", String, callback)
 
-    rospy.Subscriber("/recognizer/output", String, callback)
+        # Subscribe to the camera/depth/output topic to detect point clouds.
+        rospy.Subscriber('/camera/depth/points', PointCloud2, pc_callback)
 
-    
+        deck = ['A','2','3','4','5','6','7','8','9','J','Q','K'] * 4
+        value = defaultdict()
+        value['A'] = 1
+        value['2'] = 2
+        value['3'] = 3
+        value['4'] = 4
+        value['5'] = 5
+        value['6'] = 6
+        value['7'] = 7
+        value['8'] = 8
+        value['9'] = 9
+        value['J'] = 10
+        value['Q'] = 10
+        value['K'] = 10
+        
+        g = Game()
+        g.play()
 
-    
-    deck = ['A','2','3','4','5','6','7','8','9','J','Q','K'] * 4
-    value = defaultdict()
-    value['A'] = 1
-    value['2'] = 2
-    value['3'] = 3
-    value['4'] = 4
-    value['5'] = 5
-    value['6'] = 6
-    value['7'] = 7
-    value['8'] = 8
-    value['9'] = 9
-    value['J'] = 10
-    value['Q'] = 10
-    value['K'] = 10
+        rospy.spin()
 
-    g = Game()
-    g.play()
-
-    rospy.spin()
+    except rospy.ROSInterruptException:
+      rospy.loginfo("Movement terminated.")
 
 #     sai = Player()
 #     dealer = Player()
