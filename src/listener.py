@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 import rospy
 from std_msgs.msg import String
-#import Tkinter as tk
+from PIL import ImageTk
+import PIL.Image
 from Tkinter import *
 
 class FullScreenApp(object):
@@ -90,11 +91,42 @@ def callback(data):
      # lbl.grid(column=0, row=0)
      # root.after(1000, lambda:root.destroy())
      # root.mainloop()
+def image(data):
+    print(data.data)
+    window = Tk()
+    window.title("Join")
+    window.geometry("1000x1000")
+    app=FullScreenApp(window)
+    window.configure(background='grey')
+    if(data.data=="start"):  
+        path = "/home/turtlebot/Downloads/black_jack.jpeg"
+    else:   
+        path = "/home/turtlebot/Downloads/end.jpeg"
+    img = ImageTk.PhotoImage(PIL.Image.open(path))
+    panel = Label(window, image = img)
+    panel.pack(side = "bottom", fill = "both", expand = "yes")
+    window.after(4000, window.destroy)
+    window.mainloop()
+
+
+
+    # root = Tk()      
+    # canvas = Canvas(root, width = 200, height = 200)      
+    # canvas.pack()  
+    # if(data=="start"):  
+    #     img = PhotoImage(file="/home/turtlebot/Downloads/black_jack.jpeg")   
+    # else:   
+    #     img = PhotoImage(file="/home/turtlebot/Downloads/end.jpeg")  
+    # canvas.create_image(20,20, anchor=NW, image=img)
+    # root.after(4000, root.destroy)      
+    # root.mainloop()  
      
      
 def listener():
      rospy.init_node('listener', anonymous=True)
      rospy.Subscriber("chatter", String, callback)
+     rospy.Subscriber("show", String, image)
+
      rospy.spin()
  
 if __name__ == '__main__':

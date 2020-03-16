@@ -20,6 +20,7 @@ soundhandle = SoundClient()
 # Publish the Twist message to the cmd_vel topic
 cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=5)
 disp_pub = rospy.Publisher('chatter', String, queue_size=10)
+img_pub = rospy.Publisher('show', String, queue_size=10)
 cmd_vel = Twist()
 
 
@@ -106,6 +107,8 @@ class Game:
         self.start = 0
 
     def play(self):
+        img_pub.publish("start")
+        rospy.sleep(1)
         soundhandle.playWave('drumroll.wav')
         rospy.sleep(2)
         soundhandle.say("Let's play black jack")
@@ -235,6 +238,8 @@ class Game:
                 result = compare(self.dealer.score,self.players[n].score)
                 announce(self.dealer.score,self.players[n].score,n)
                 say(result)
+        rospy.sleep(5)
+        img_pub.publish("end")
                 
         
 
