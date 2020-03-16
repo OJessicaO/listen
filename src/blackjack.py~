@@ -12,6 +12,8 @@ from geometry_msgs.msg import Twist
 from sensor_msgs.msg import PointCloud2
 from sensor_msgs import point_cloud2
 
+import Tkinter as tk
+import random
 PI = 3.1415926535897
 mul = 14/9
 
@@ -19,8 +21,17 @@ soundhandle = SoundClient()
 
 # Publish the Twist message to the cmd_vel topic
 cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=5)
-disp_pub = rospy.Publisher('chatter', String, queue_size=10)
 cmd_vel = Twist()
+
+l = tk.Label(text='0')
+
+
+
+
+def update():
+    l.config(text=str(random.random()))
+    root.after(1000, update)
+    
 
 
 def rotate(angle):
@@ -85,7 +96,6 @@ def pc_callback(msg):
 
         # if no person found, or a current player's turn has ended, turn
         else:
-            # update_screen()
             g.motion = 1
             print("No points")
             cmd_vel.linear.x=0;
@@ -100,37 +110,31 @@ class Game:
         self.numPlayers = 0
         self.players = []
         self.currentPlayer = -1
-        self.dealer = Player()
         self.engage = 1
         self.motion = 1
         self.start = 0
 
     def play(self):
-        soundhandle.playWave('drumroll.wav')
-        rospy.sleep(2)
-        soundhandle.say("Let's play black jack")
-        rospy.sleep(2)
-        soundhandle.say("Enter the number of players")
-        rospy.sleep(2)
+        
         self.numPlayers =  input("Input the number of players ")
 
         # create specified number of players
         for n in range(self.numPlayers):
             self.players.append(Player())
 
-        
-        soundhandle.playWave('shuffling.wav')
-        rospy.sleep(2)
+        # create dealer
+        dealer = Player()
+
         # deal dealers' first 2 cards
-        self.dealer.hit()
-        self.dealer.hit()
+        dealer.hit()
+        dealer.hit()
         
         # deal each player's first 2 cards
         for n in range(self.numPlayers):
             self.players[n].hit()
             self.players[n].hit()
             print "Player ",n," score:",self.players[n].score
-        update_screen()
+
         if self.numPlayers>1:
             rotate(50*(self.numPlayers-1)+10)
 
@@ -146,7 +150,12 @@ class Game:
 
             # play current player until BUST or stay
             while(True):
-                update_screen()
+                # self.start = 1
+                # print(self.motion)
+                # while (self.motion==1):
+                #     rospy.sleep(1)
+                # print(self.motion,"..............")
+                #self.start = 0
                 soundhandle.say("Your score is " + str(self.players[n].score) +" Hit or stay?")
 
                 self.players[n].listen = 1
@@ -169,71 +178,49 @@ class Game:
                     rospy.sleep(3)
                     print "PLAYER",n,"BURST"
                     break
-            update_screen()
             # set engagement for next player if any
             if(n<self.numPlayers-1):
                 self.start = 1
                 self.engage = 0
                 rospy.sleep(6)
                 self.engage = 1
-        update_screen()
+
         if self.numPlayers>1:
             rotate(50*(self.numPlayers-1))
 
         self.start = 0
+        burst = 0
 
         # start dealer's turn
-        soundhandle.say("Dealer is playing")
-        rospy.sleep(3.5)
-        print "Dealer's play is going on..."
-        while(self.dealer.score<17):
-            
-            self.dealer.hit()
-            update_screen()
-            soundhandle.say("Dealer's score is " + str(self.dealer.score))
-            rospy.sleep(3)
-            if(self.dealer.score>21):
-                self.dealer.burst = 1
-                print "Dealers score: ",self.dealer.score
+        print "Dealer's play going on..."
+        while(dealer.score<17):
+            dealer.hit()
+            if(dealer.score>21):
+                burst = 1
+                print "Dealers score: ",dealer.score
                 print "DEALER BURST"
-                soundhandle.say("Dealer BURST")
-                rospy.sleep(3)
                 break
-            # print "Dealers score: ",self.dealer.score 
-            # soundhandle.say("Dealer's final score is" + str(self.dealer.score))
-            # rospy.sleep(2)
-        update_screen()
-        if(self.dealer.burst == 1):
+            print "Dealers score: ",dealer.score 
+        
+        if(burst == 1):
             print "Players won"
-            soundhandle.say("The players won. Congratulations!")
-            rospy.sleep(4)
-            soundhandle.playWave('applause.wav')
-            rospy.sleep(2)
         else:
             maxscore = -1
             for n in range(self.numPlayers):
                 if(self.players[n].score<22 and self.players[n].score>maxscore):
                     maxscore = self.players[n].score
 
-            result = compare(self.dealer.score,maxscore)
-            if(result==2 or result==3):
-                update_screen()
-                print self.dealer.score
+            result = compare(dealer.score,maxscore)
+            if(result==2):
+                print dealer.score
                 print "Cheating going on"
-                cheat(self.dealer)
-                print "After cheating the dealer has ",self.dealer.score
-                soundhandle.say("The dealer's final score is " + str(self.dealer.score))
-                rospy.sleep(3)
-            else:
-                update_screen()
-                soundhandle.say("The dealer's final score is " + str(self.dealer.score))
-                rospy.sleep(3)
+                cheat(dealer)
+                print "After cheating the dealer has ",dealer.score
                 
             for n in range(self.numPlayers):
-                update_screen()
                 self.currentPlayer = n
-                result = compare(self.dealer.score,self.players[n].score)
-                announce(self.dealer.score,self.players[n].score,n)
+                result = compare(dealer.score,self.players[n].score)
+                announce(dealer.score,self.players[n].score,n)
                 say(result)
                 
         
@@ -246,7 +233,6 @@ class Player:
         self.cards = []
         self.listen = 0
         self.stay = 0
-        self.burst = 0
 
     def hit(self):
         card = np.random.choice(deck)
@@ -256,20 +242,14 @@ class Player:
 
 def announce(dealerScore, playerScore,num):
     if(playerScore>21 or dealerScore>playerScore):
-        soundhandle.say("The dealer won against player " + str(num+1))
+        soundhandle.say("The dealer won against player " + str(num))
         rospy.sleep(3)
-        soundhandle.playWave('aww.mp3')
-        rospy.sleep(2)
     elif(dealerScore<playerScore):
-        soundhandle.say("The player"+str(num+1)+" won against the dealer ")
+        soundhandle.say("The player"+str(num)+" won against the dealer ")
         rospy.sleep(3)
-        soundhandle.playWave('applause.wav')
-        rospy.sleep(2)
     elif(dealerScore==playerScore):
-        soundhandle.say("The dealer tied with player " + str(num+1))
+        soundhandle.say("The dealer tied with player " + str(num))
         rospy.sleep(3)
-        soundhandle.playWave('applause.wav')
-        rospy.sleep(2)
 def compare(dealerScore, playerScore):
     if(playerScore>21 or dealerScore>playerScore):
         return 1
@@ -321,22 +301,8 @@ def callback(data):
 
     return
            
-def update_screen():
-    s = ""
-    for n in range(g.numPlayers):
-        for c in g.players[n].cards:
-            s = s + str(c) + ','
-        s = s + str(g.players[n].score) 
-        s = s + ' ' 
-    if len(g.dealer.cards) <3:
-        s = s + str(g.dealer.cards[0])
-    else:
-        for c in g.dealer.cards:
-            s = s + str(c) + ','
-        s = s + str(g.dealer.score)
-    print s
-    disp_pub.publish(s)
 
+        
     
 
 
@@ -365,71 +331,18 @@ if __name__ == '__main__':
         value['Q'] = 10
         value['K'] = 10
         
+
+        root = tk.Tk()
+        #l = tk.Label(text='0')
+        l.pack()
+        root.after(1000, update)
+        
         g = Game()
         g.play()
 
         rospy.spin()
 
+        root.mainloop()
+
     except rospy.ROSInterruptException:
       rospy.loginfo("Movement terminated.")
-
-#     sai = Player()
-#     dealer = Player()
-#     sai.hit()
-#     dealer.hit()
-#     print("Dealer has a ",dealer.score," and a hidden card")
-#     sai.hit()
-#     dealer.hit()
-#     print("Sai has a score of ",sai.score)
-#     while(True):
-#         sai.listen = 1
-#         # action = input("1.Hit or 2.Stay ")
-#         # print("hit or stay")
-#         # rospy.sleep(1)
-#         # print("outside")
-
-#         # if(action != 1):
-#         #     print("breaking")
-#         #     break
-#         # else:
-#         #     sai.hit()
-#         #     print("Sais score: ",sai.score)
-#         if(sai.stay == 1):
-#             sai.listen = 0
-#             break
-#         if(sai.score>21):
-#             sai.listen = 0
-#             print("SAI BURST")
-#             break
-        
-#     if(sai.score>21):
-#         print('Dealer won')
-#     else:
-#         burst = 0
-#         print("Dealer's play going on...")
-#         while(dealer.score<17):
-#             dealer.hit()
-#             if(dealer.score>21):
-#                 burst = 1
-#                 print("Dealers score: ",dealer.score)
-#                 print("DEALER BURST")
-#                 break
-#             print("Dealers score: ",dealer.score)
-        
-#         if(burst == 1):
-#             print("Sai won")
-#         else:
-#             result = compare(dealer.score,sai.score)
-#             if(result==1 or result==3):
-#                 say(result)
-#             else:
-#                 print(dealer.score)
-#                 print("Cheating going on")
-#                 cheat(dealer)
-#                 print("After cheating the dealer has ",dealer.score)
-#                 result = compare(dealer.score,sai.score)
-#                 print("The dealer cheated")
-#                 say(result)
-
-# #??? rospy.rate(10)
-#     rospy.spin()
