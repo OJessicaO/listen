@@ -4,7 +4,7 @@ To set up:
 
 roscore
 roslaunch listen recognizer.launch
-roslaunch astra_launch astr_pro.launch
+roslaunch astra_launch astra_pro.launch
 rosrun sound_play soundplay_node.py
 
 In catkin_ws:
