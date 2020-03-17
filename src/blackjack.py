@@ -19,22 +19,24 @@ soundhandle = SoundClient()
 
 # Publish the Twist message to the cmd_vel topic
 cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=5)
+# Publish the screen score display message to the chatter topic
 disp_pub = rospy.Publisher('chatter', String, queue_size=10)
+# Publish the image display message to the show topic (for start and end screens)
 img_pub = rospy.Publisher('show', String, queue_size=10)
 cmd_vel = Twist()
 
-
+# Function to turn the robot towards and away from the center of player group
 def rotate(angle):
 
     speed = 40
     clockwise = False
     angle = angle*mul
     print angle
-    #Converting from angles to radians
+    # Converting from angles to radians
     angular_speed = speed*2*PI/360
     relative_angle = angle*2*PI/360
 
-    #We wont use linear components
+    # We wont use linear components
     cmd_vel.linear.x=0
 
     # Checking if our movement is CW or CCW
@@ -56,6 +58,7 @@ def rotate(angle):
     cmd_vel_pub.publish(cmd_vel)
 
 
+# Function to detect person and decide to stay still if that person's turn
 def pc_callback(msg):
     
     p0,p1,p2, n = 0, 0, 0, 0
@@ -95,7 +98,7 @@ def pc_callback(msg):
 
     return
 
-
+# Class to play game
 class Game:
     def __init__(self):
         self.numPlayers = 0
@@ -106,6 +109,7 @@ class Game:
         self.motion = 1
         self.start = 0
 
+    # function to play the game by creating specified number of player objects
     def play(self):
         img_pub.publish("start")
         rospy.sleep(1)
@@ -206,6 +210,8 @@ class Game:
             # soundhandle.say("Dealer's final score is" + str(self.dealer.score))
             # rospy.sleep(2)
         update_screen()
+
+        # Display and announce results
         if(self.dealer.burst == 1):
             print "Players won"
             soundhandle.say("The players won. Congratulations!")
@@ -244,7 +250,7 @@ class Game:
         
 
 
-
+# class for each player in the game
 class Player:
     def __init__(self):
         self.score = 0
@@ -253,12 +259,14 @@ class Player:
         self.stay = 0
         self.burst = 0
 
+    # Function to hit the player with another card
     def hit(self):
         card = np.random.choice(deck)
         deck.remove(card)
         self.cards.append(card)
         self.score = self.score + value[card]
 
+# function to announce results based on player and dealer score
 def announce(dealerScore, playerScore,num):
     if(playerScore>21 or dealerScore>playerScore):
         soundhandle.say("The dealer won against player " + str(num+1))
@@ -275,6 +283,8 @@ def announce(dealerScore, playerScore,num):
         rospy.sleep(3)
         soundhandle.playWave('applause.wav')
         rospy.sleep(2)
+
+# function to check comparison of scores 
 def compare(dealerScore, playerScore):
     if(playerScore>21 or dealerScore>playerScore):
         return 1
@@ -283,6 +293,7 @@ def compare(dealerScore, playerScore):
     elif(dealerScore==playerScore):
         return 3
 
+# function for dealer to try and cheat
 def cheat(dealer):
     l = deepcopy(deck)
     l.sort()
@@ -294,6 +305,7 @@ def cheat(dealer):
             break
     dealer.score = dealer.score + val
 
+# function to print result for given player
 def say(i):
     print "Between the dealer and player",g.currentPlayer,":"
     if(i==1):
@@ -305,27 +317,30 @@ def say(i):
 
 
 
-
+# callback function for voice recognition
 def callback(data):
 
     if(g.currentPlayer>=0 and g.players[g.currentPlayer].listen == 1):
        
         if(data.data=="hit"):
+            # hit the player
             g.players[g.currentPlayer].hit()
             print "Player",g.currentPlayer," score: ",g.players[g.currentPlayer].score 
             g.players[g.currentPlayer].listen = 0
 
         elif(data.data=="stay" or data.data == "stand"):
+            # end the current player's turn
             g.players[g.currentPlayer].stay = 1
             g.players[g.currentPlayer].listen = 0
 
         else:
-            #rospy.sleep(1)
+            # if input not recognized
             soundhandle.say("what?")
             rospy.sleep(1)
 
     return
-           
+          
+# function to update screen message being published to the 'chatter' topic
 def update_screen():
     s = ""
     for n in range(g.numPlayers):
@@ -378,63 +393,3 @@ if __name__ == '__main__':
     except rospy.ROSInterruptException:
       rospy.loginfo("Movement terminated.")
 
-#     sai = Player()
-#     dealer = Player()
-#     sai.hit()
-#     dealer.hit()
-#     print("Dealer has a ",dealer.score," and a hidden card")
-#     sai.hit()
-#     dealer.hit()
-#     print("Sai has a score of ",sai.score)
-#     while(True):
-#         sai.listen = 1
-#         # action = input("1.Hit or 2.Stay ")
-#         # print("hit or stay")
-#         # rospy.sleep(1)
-#         # print("outside")
-
-#         # if(action != 1):
-#         #     print("breaking")
-#         #     break
-#         # else:
-#         #     sai.hit()
-#         #     print("Sais score: ",sai.score)
-#         if(sai.stay == 1):
-#             sai.listen = 0
-#             break
-#         if(sai.score>21):
-#             sai.listen = 0
-#             print("SAI BURST")
-#             break
-        
-#     if(sai.score>21):
-#         print('Dealer won')
-#     else:
-#         burst = 0
-#         print("Dealer's play going on...")
-#         while(dealer.score<17):
-#             dealer.hit()
-#             if(dealer.score>21):
-#                 burst = 1
-#                 print("Dealers score: ",dealer.score)
-#                 print("DEALER BURST")
-#                 break
-#             print("Dealers score: ",dealer.score)
-        
-#         if(burst == 1):
-#             print("Sai won")
-#         else:
-#             result = compare(dealer.score,sai.score)
-#             if(result==1 or result==3):
-#                 say(result)
-#             else:
-#                 print(dealer.score)
-#                 print("Cheating going on")
-#                 cheat(dealer)
-#                 print("After cheating the dealer has ",dealer.score)
-#                 result = compare(dealer.score,sai.score)
-#                 print("The dealer cheated")
-#                 say(result)
-
-# #??? rospy.rate(10)
-#     rospy.spin()
